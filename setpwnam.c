@@ -50,11 +50,11 @@ typedef int boolean;
 #define true 1
 
 #ifndef DEBUG
-#define PASSWD_FILE	"/etc/passwd"
-#define PTMP_FILE	"/etc/ptmp"
+#define PASSWD_FILE     "/etc/passwd"
+#define PTMP_FILE       "/etc/ptmp"
 #else
-#define PASSWD_FILE	"/tmp/passwd"
-#define PTMP_FILE	"/tmp/ptmp"
+#define PASSWD_FILE     "/tmp/passwd"
+#define PTMP_FILE       "/tmp/ptmp"
 #endif
 
 static int copy_pwd (struct passwd *src, struct passwd *dest);
@@ -62,9 +62,9 @@ static char *xstrdup (char *str);
 
 /*
  *  setpwnam () --
- *	takes a struct passwd in which every field is filled in and valid.
- *	If the given username exists in the passwd file, his entry is
- *	replaced with the given entry.
+ *      takes a struct passwd in which every field is filled in and valid.
+ *      If the given username exists in the passwd file, his entry is
+ *      replaced with the given entry.
  */
 int setpwnam (struct passwd *pwd)
 {
@@ -82,19 +82,19 @@ int setpwnam (struct passwd *pwd)
      *  some other buffer before calling getpwent().
      */
     if (copy_pwd (pwd, &spwd) < 0)
-	return (-1);
+        return (-1);
 
     /* sanity check */
     for (x = 0; x < 3; x++) {
         if (x > 0) sleep (1);
-	fd = open (ptmp, O_WRONLY|O_CREAT|O_EXCL, 00644);
+        fd = open (ptmp, O_WRONLY|O_CREAT|O_EXCL, 00644);
         if (fd >= 0) break;
     }
     if (fd < 0) return (-1);
 
     /* ptmp should be owned by root.root or root.wheel */
     if (chown (ptmp, (uid_t) 0, (gid_t) 0) < 0)
-	perror ("chown");
+        perror ("chown");
 
     /* open ptmp for writing and passwd for reading */
     fp = fdopen (fd, "w");
@@ -106,7 +106,7 @@ int setpwnam (struct passwd *pwd)
     found = false;
     while ((entry = getpwent ()) != NULL) {
         if (! strcmp (spwd.pw_name, entry->pw_name)) {
-	    entry = &spwd;
+            entry = &spwd;
             found = true;
         }
         if (putpwent (entry, fp) < 0) goto fail;
@@ -116,8 +116,8 @@ int setpwnam (struct passwd *pwd)
     endpwent ();
 
     if (! found) {
-	errno = ENOENT; /* give me something better */
-	goto fail;
+        errno = ENOENT; /* give me something better */
+        goto fail;
     }
 
     strcpy (buf, passwd);
@@ -128,17 +128,17 @@ int setpwnam (struct passwd *pwd)
     link (passwd, buf);
     /* we DO care if we can't erase the passwd file */
     if (remove (passwd) < 0) {
-	/* if the file is still there, fail */
-	if (access (passwd, F_OK) == 0) goto fail;
+        /* if the file is still there, fail */
+        if (access (passwd, F_OK) == 0) goto fail;
     }
     /* if we can't link ptmp to passwd, all is lost */
     if (link (ptmp, passwd) < 0) {
-	/* reinstall_system (); */
-	return (-1);
+        /* reinstall_system (); */
+        return (-1);
     }
     /* if we can't erase the ptmp file, we simply lose */
     if (remove (ptmp) < 0)
-	return (-1);
+        return (-1);
     /* finally:  success */
     return 0;
 
@@ -179,11 +179,11 @@ static char *xstrdup (char *str)
     char *dup;
 
     if (! str)
-	return NULL;
+        return NULL;
     dup = (char *) malloc (strlen (str) + 1);
     if (! dup) {
-	failed = -1;
-	return NULL;
+        failed = -1;
+        return NULL;
     }
     strcpy (dup, str);
     return dup;
@@ -194,13 +194,13 @@ static char *xstrdup (char *str)
 int putpwent (const struct passwd *p, FILE *stream)
 {
     if (p == NULL || stream == NULL) {
-	errno = EINVAL;
-	return (-1);
+        errno = EINVAL;
+        return (-1);
     }
     if (fprintf (stream, "%s:%s:%u:%u:%s:%s:%s\n",
-		 p->pw_name, p->pw_passwd, p->pw_uid, p->pw_gid,
-		 p->pw_gecos, p->pw_dir, p->pw_shell) < 0)
-	return (-1);
+                 p->pw_name, p->pw_passwd, p->pw_uid, p->pw_gid,
+                 p->pw_gecos, p->pw_dir, p->pw_shell) < 0)
+        return (-1);
     return(0);
 }
 
