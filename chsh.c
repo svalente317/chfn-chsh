@@ -1,20 +1,14 @@
 /*
  *   chsh.c -- change your login shell
- *   (c) 1994 by salvatore valente <svalente@athena.mit.edu>
+ *   (c) 1994 by Salvatore Valente <svalente@mit.edu>
  *
- *   this program is free software.  you can redistribute it and
- *   modify it under the terms of the gnu general public license.
- *   there is no warranty.
- *
- *   $Author: svalente $
- *   $Revision: 1.5 $
- *   $Date: 1995/08/05 02:07:57 $
- *
+ *   This program is free software. You can redistribute it and
+ *   modify it under the terms of the GNU General Public License.
+ *   There is no warranty.
  */
 
-#define _POSIX_SOURCE 1
-
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -24,39 +18,26 @@
 #include <ctype.h>
 #include <getopt.h>
 
-#undef P
-#if __STDC__
-#define P(foo) foo
-#else
-#define P(foo) ()
-#endif
-
 typedef unsigned char boolean;
 #define false 0
 #define true 1
 
-static char *version_string = "chsh 0.91 beta";
+static char *version_string = "chsh 0.92";
 static char *whoami;
-
-static char buf[FILENAME_MAX];
 
 struct sinfo {
     char *username;
     char *shell;
 };
 
-static void parse_argv P((int argc, char *argv[], struct sinfo *pinfo));
-static void usage P((FILE *fp));
-static char *prompt P((char *question, char *def_val));
-static int check_shell P((char *shell));
-static boolean get_shell_list P((char *shell));
-static void *xmalloc P((int bytes));
-extern int setpwnam P((struct passwd *pwd));
-#define memzero(ptr, size) memset((char *) ptr, 0, size)
+static void parse_argv(int argc, char *argv[], struct sinfo *pinfo);
+static void usage(FILE *fp);
+static char *prompt(char *question, char *def_val);
+static int check_shell(char *shell);
+static boolean get_shell_list(char *shell);
+extern int setpwnam(struct passwd *pwd);
 
-int main (argc, argv)
-    int argc;
-    char *argv[];
+int main(int argc, char *argv[])
 {
     char *cp, *shell;
     uid_t uid;
@@ -73,7 +54,7 @@ int main (argc, argv)
     umask (022);
 
     uid = getuid ();
-    memzero (&info, sizeof (info));
+    memset (&info, 0, sizeof (info));
 
     parse_argv (argc, argv, &info);
     pw = NULL;
@@ -82,8 +63,7 @@ int main (argc, argv)
         if (! pw) {
             fprintf (stderr, "%s: you (user %d) don't exist.\n", whoami, uid);
             return (-1); }
-    }
-    else {
+    } else {
         pw = getpwnam (info.username);
         if (! pw) {
             cp = info.username;
@@ -124,10 +104,7 @@ int main (argc, argv)
  *      parse the command line arguments, and fill in "pinfo" with any
  *      information from the command line.
  */
-static void parse_argv (argc, argv, pinfo)
-    int argc;
-    char *argv[];
-    struct sinfo *pinfo;
+static void parse_argv(int argc, char *argv[], struct sinfo *pinfo)
 {
     int index, c;
 
@@ -166,7 +143,7 @@ static void parse_argv (argc, argv, pinfo)
             exit (-1);
         }
     }
-    /* done parsing arguments.  check for a username. */
+    /* done parsing arguments. check for a username. */
     if (optind < argc) {
         if (optind + 1 < argc) {
             usage (stderr);
@@ -180,8 +157,7 @@ static void parse_argv (argc, argv, pinfo)
  *  usage () --
  *      print out a usage message.
  */
-static void usage (fp)
-    FILE *fp;
+static void usage(FILE *fp)
 {
     fprintf (fp, "Usage: %s [ -s shell ] ", whoami);
     fprintf (fp, "[ --list-shells ] [ --help ] [ --version ]\n");
@@ -192,13 +168,12 @@ static void usage (fp)
  *  prompt () --
  *      ask the user for a given field and return it.
  */
-static char *prompt (question, def_val)
-    char *question;
-    char *def_val;
+static char *prompt(char *question, char *def_val)
 {
     int len;
-    char *ans, *cp;
-  
+    char *ans;
+    char buf[1024];
+
     if (! def_val) def_val = "";
     printf("%s [%s]: ", question, def_val);
     *buf = 0;
@@ -213,9 +188,7 @@ static char *prompt (question, def_val)
     while (len > 0 && isspace (ans[len-1])) len--;
     if (len <= 0) return NULL;
     ans[len] = 0;
-    cp = (char *) xmalloc (len + 1);
-    strcpy (cp, buf);
-    return cp;
+    return strdup(buf);
 }
 
 /*
@@ -223,8 +196,7 @@ static char *prompt (question, def_val)
  *      an error and return (-1).
  *      if the shell is a bad idea, print a warning.
  */
-static int check_shell (shell)
-    char *shell;
+static int check_shell(char *shell)
 {
     int i, c;
 
@@ -243,7 +215,7 @@ static int check_shell (shell)
     /* keep /etc/passwd clean. */
     for (i = 0; i < strlen (shell); i++) {
         c = shell[i];
-        if (c == ',' || c == ':' || c == '=' || c == '"' || c == '\n') {
+        if (c == ',' || c == ':' || c == '=' || c == '"') {
             printf ("%s: '%c' is not allowed.\n", whoami, c);
             return (-1);
         }
@@ -252,8 +224,9 @@ static int check_shell (shell)
             return (-1);
         }
     }
-    if (! get_shell_list (shell))
+    if (! get_shell_list (shell)) {
         printf ("warning: \"%s\" is not listed as a valid shell.\n", shell);
+    }
     return 0;
 }
 
@@ -262,12 +235,12 @@ static int check_shell (shell)
  *      return true.  if not, return false.
  *      if the given shell is NULL, /etc/shells is outputted to stdout.
  */
-static boolean get_shell_list (shell_name)
-    char *shell_name;
+static boolean get_shell_list(char *shell_name)
 {
     FILE *fp;
     boolean found;
     int len;
+    char buf[1024];
 
     found = false;
     fp = fopen ("/etc/shells", "r");
@@ -279,10 +252,10 @@ static boolean get_shell_list (shell_name)
         /* ignore comments */
         if (*buf == '#') continue;
         len = strlen (buf);
+        /* ignore lines that are too long */
+        if (buf[len-1] != '\n') continue;
         /* strip the ending newline */
-        if (buf[len - 1] == '\n') buf[len - 1] = 0;
-        /* ignore lines that are too damn long */
-        else continue;
+        buf[len - 1] = 0;
         /* check or output the shell */
         if (shell_name) {
             if (! strcmp (shell_name, buf)) {
@@ -294,20 +267,4 @@ static boolean get_shell_list (shell_name)
     }
     fclose (fp);
     return found;
-}
-
-/*
- *  xmalloc () -- malloc that never fails.
- */
-static void *xmalloc (bytes)
-    int bytes;
-{
-    void *vp;
-
-    vp = malloc (bytes);
-    if (! vp && bytes > 0) {
-        perror ("malloc failed");
-        exit (-1);
-    }
-    return vp;
 }

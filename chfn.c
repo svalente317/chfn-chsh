@@ -1,20 +1,14 @@
 /*
  *   chfn.c -- change your finger information
- *   (c) 1994 by salvatore valente <svalente@athena.mit.edu>
+ *   (c) 1994 by Salvatore Valente <svalente@mit.edu>
  *
- *   this program is free software.  you can redistribute it and
- *   modify it under the terms of the gnu general public license.
- *   there is no warranty.
- *
- *   $Author: svalente $
- *   $Revision: 1.5 $
- *   $Date: 1995/08/05 02:07:28 $
- *
+ *   This program is free software. You can redistribute it and
+ *   modify it under the terms of the GNU General Public License.
+ *   There is no warranty.
  */
 
-#define _POSIX_SOURCE 1
-
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -24,21 +18,12 @@
 #include <ctype.h>
 #include <getopt.h>
 
-#undef P
-#if __STDC__
-#define P(foo) foo
-#else
-#define P(foo) ()
-#endif
-
 typedef unsigned char boolean;
 #define false 0
 #define true 1
 
-static char *version_string = "chfn 0.91 beta";
+static char *version_string = "chfn 0.92";
 static char *whoami;
-
-static char buf[1024];
 
 struct finfo {
     struct passwd *pw;
@@ -50,22 +35,17 @@ struct finfo {
     char *other;
 };
 
-static boolean parse_argv P((int argc, char *argv[], struct finfo *pinfo));
-static void usage P((FILE *fp));
-static void parse_passwd P((struct passwd *pw, struct finfo *pinfo));
-static void ask_info P((struct finfo *oldfp, struct finfo *newfp));
-static char *prompt P((char *question, char *def_val));
-static int check_gecos_string P((char *msg, char *gecos));
-static boolean set_changed_data P((struct finfo *oldfp, struct finfo *newfp));
-static int save_new_data P((struct finfo *pinfo));
-static void *xmalloc P((int bytes));
-extern int strcasecmp P((char *, char *));
-extern int setpwnam P((struct passwd *pwd));
-#define memzero(ptr, size) memset((char *) ptr, 0, size)
+static boolean parse_argv(int argc, char *argv[], struct finfo *pinfo);
+static void usage(FILE *fp);
+static void parse_passwd(struct passwd *pw, struct finfo *pinfo);
+static void ask_info(struct finfo *oldfp, struct finfo *newfp);
+static char *prompt(char *question, char *def_val);
+static int check_gecos_string(char *msg, char *gecos);
+static boolean set_changed_data(struct finfo *oldfp, struct finfo *newfp);
+static int save_new_data(struct finfo *pinfo);
+extern int setpwnam(struct passwd *pwd);
 
-int main (argc, argv)
-    int argc;
-    char *argv[];
+int main(int argc, char *argv[])
 {
     char *cp;
     uid_t uid;
@@ -93,22 +73,23 @@ int main (argc, argv)
      *  specified for.
      */
     uid = getuid ();
-    memzero (&oldf, sizeof (oldf));
-    memzero (&newf, sizeof (newf));
+    memset (&oldf, 0, sizeof (oldf));
+    memset (&newf, 0, sizeof (newf));
 
     interactive = parse_argv (argc, argv, &newf);
     if (! newf.username) {
         parse_passwd (getpwuid (uid), &oldf);
         if (! oldf.username) {
             fprintf (stderr, "%s: you (user %d) don't exist.\n", whoami, uid);
-            return (-1); }
-    }
-    else {
+            return (-1);
+        }
+    } else {
         parse_passwd (getpwnam (newf.username), &oldf);
         if (! oldf.username) {
             cp = newf.username;
             fprintf (stderr, "%s: user \"%s\" does not exist.\n", whoami, cp);
-            return (-1); }
+            return (-1);
+        }
     }
 
     /* reality check */
@@ -133,13 +114,11 @@ int main (argc, argv)
  *      parse the command line arguments.
  *      returns true if no information beyond the username was given.
  */
-static boolean parse_argv (argc, argv, pinfo)
-    int argc;
-    char *argv[];
-    struct finfo *pinfo;
+static boolean parse_argv(int argc, char *argv[], struct finfo *pinfo)
 {
     int index, c, status;
     boolean info_given;
+    char *msg;
 
     static struct option long_options[] = {
         { "full-name",    required_argument, 0, 'f' },
@@ -173,29 +152,28 @@ static boolean parse_argv (argc, argv, pinfo)
         /* ok, we were given an argument */
         info_given = true;
         status = 0;
-        strcpy (buf, whoami); strcat (buf, ": ");
 
         /* now store the argument */
         switch (c) {
         case 'f':
             pinfo->full_name = optarg;
-            strcat (buf, "full name");
-            status = check_gecos_string (buf, optarg);
+            msg ="full name";
+            status = check_gecos_string (msg, optarg);
             break;
         case 'o':
             pinfo->office = optarg;
-            strcat (buf, "office");
-            status = check_gecos_string (buf, optarg);
+            msg ="office";
+            status = check_gecos_string (msg, optarg);
             break;
         case 'p':
             pinfo->office_phone = optarg;
-            strcat (buf, "office phone");
-            status = check_gecos_string (buf, optarg);
+            msg ="office phone";
+            status = check_gecos_string (msg, optarg);
             break;
         case 'h':
             pinfo->home_phone = optarg;
-            strcat (buf, "home phone");
-            status = check_gecos_string (buf, optarg);
+            msg ="home phone";
+            status = check_gecos_string (msg, optarg);
             break;
         default:
             usage (stderr);
@@ -203,7 +181,7 @@ static boolean parse_argv (argc, argv, pinfo)
         }
         if (status < 0) exit (status);
     }
-    /* done parsing arguments.  check for a username. */
+    /* done parsing arguments. check for a username. */
     if (optind < argc) {
         if (optind + 1 < argc) {
             usage (stderr);
@@ -218,8 +196,7 @@ static boolean parse_argv (argc, argv, pinfo)
  *  usage () --
  *      print out a usage message.
  */
-static void usage (fp)
-    FILE *fp;
+static void usage(FILE *fp)
 {
     fprintf (fp, "Usage: %s [ -f full-name ] [ -o office ] ", whoami);
     fprintf (fp, "[ -p office-phone ]\n [ -h home-phone ] ");
@@ -231,9 +208,7 @@ static void usage (fp)
  *      take a struct password and fill in the fields of the
  *      struct finfo.
  */
-static void parse_passwd (pw, pinfo)
-    struct passwd *pw;
-    struct finfo *pinfo;
+static void parse_passwd(struct passwd *pw, struct finfo *pinfo)
 {
     char *cp;
 
@@ -264,9 +239,7 @@ static void parse_passwd (pw, pinfo)
  *  ask_info () --
  *      prompt the user for the finger information and store it.
  */
-static void ask_info (oldfp, newfp)
-    struct finfo *oldfp;
-    struct finfo *newfp;
+static void ask_info(struct finfo *oldfp, struct finfo *newfp)
 {
     printf ("Changing finger information for %s.\n", oldfp->username);
     newfp->full_name = prompt ("Name", oldfp->full_name);
@@ -280,14 +253,13 @@ static void ask_info (oldfp, newfp)
  *  prompt () --
  *      ask the user for a given field and check that the string is legal.
  */
-static char *prompt (question, def_val)
-    char *question;
-    char *def_val;
+static char *prompt(char *question, char *def_val)
 {
     static char *blank = "none";
     int len;
-    char *ans, *cp;
-  
+    char *ans;
+    char buf[1024];
+
     while (true) {
         if (! def_val) def_val = "";
         printf("%s [%s]: ", question, def_val);
@@ -306,9 +278,7 @@ static char *prompt (question, def_val)
         if (! strcasecmp (ans, blank)) return "";
         if (check_gecos_string (NULL, ans) >= 0) break;
     }
-    cp = (char *) xmalloc (len + 1);
-    strcpy (cp, ans);
-    return cp;
+    return strdup(buf);
 }
 
 /*
@@ -317,15 +287,13 @@ static char *prompt (question, def_val)
  *      output "msg" followed by a description of the problem, and
  *      return (-1).
  */
-static int check_gecos_string (msg, gecos)
-    char *msg;
-    char *gecos;
+static int check_gecos_string(char *msg, char *gecos)
 {
     int i, c;
 
     for (i = 0; i < strlen (gecos); i++) {
         c = gecos[i];
-        if (c == ',' || c == ':' || c == '=' || c == '"' || c == '\n') {
+        if (c == ',' || c == ':' || c == '=' || c == '"') {
             if (msg) printf ("%s: ", msg);
             printf ("'%c' is not allowed.\n", c);
             return (-1);
@@ -343,21 +311,22 @@ static int check_gecos_string (msg, gecos)
  *  set_changed_data () --
  *      incorporate the new data into the old finger info.
  */
-static boolean set_changed_data (oldfp, newfp)
-    struct finfo *oldfp;
-    struct finfo *newfp;
+static boolean set_changed_data(struct finfo *oldfp, struct finfo *newfp)
 {
     boolean changed = false;
 
     if (newfp->full_name) {
-        oldfp->full_name = newfp->full_name; changed = true; }
+        oldfp->full_name = newfp->full_name; changed = true;
+    }
     if (newfp->office) {
-        oldfp->office = newfp->office; changed = true; }
+        oldfp->office = newfp->office; changed = true;
+    }
     if (newfp->office_phone) {
-        oldfp->office_phone = newfp->office_phone; changed = true; }
+        oldfp->office_phone = newfp->office_phone; changed = true;
+    }
     if (newfp->home_phone) {
-        oldfp->home_phone = newfp->home_phone; changed = true; }
-
+        oldfp->home_phone = newfp->home_phone; changed = true;
+    }
     return changed;
 }
 
@@ -366,8 +335,7 @@ static boolean set_changed_data (oldfp, newfp)
  *      save the given finger info in /etc/passwd.
  *      return zero on success.
  */
-static int save_new_data (pinfo)
-     struct finfo *pinfo;
+static int save_new_data(struct finfo *pinfo)
 {
     char *gecos;
     int len;
@@ -383,7 +351,7 @@ static int save_new_data (pinfo)
     len = (strlen (pinfo->full_name) + strlen (pinfo->office) +
            strlen (pinfo->office_phone) + strlen (pinfo->home_phone) +
            strlen (pinfo->other) + 4);
-    gecos = (char *) xmalloc (len + 1);
+    gecos = malloc (len + 1);
     sprintf (gecos, "%s,%s,%s,%s,%s", pinfo->full_name, pinfo->office,
              pinfo->office_phone, pinfo->home_phone, pinfo->other);
 
@@ -395,20 +363,4 @@ static int save_new_data (pinfo)
     }
     printf ("Finger information changed.\n");
     return 0;
-}
-
-/*
- *  xmalloc () -- malloc that never fails.
- */
-static void *xmalloc (bytes)
-    int bytes;
-{
-    void *vp;
-
-    vp = malloc (bytes);
-    if (! vp && bytes > 0) {
-        perror ("malloc failed");
-        exit (-1);
-    }
-    return vp;
 }

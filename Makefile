@@ -1,15 +1,11 @@
 #
 #    Makefile for chfn and chsh
-#    (c) 1994 by salvatore valente <svalente@athena.mit.edu>
+#    (c) 1994 by Salvatore Valente <svalente@mit.edu>
 #    v1.0 Feb 4, 1994
 #
-#    this program is free software.  you can redistribute it and
-#    modify it under the terms of the gnu general public license.
-#    there is no warranty.
-#
-#    $Author: svalente $
-#    $Revision: 1.3 $
-#    $Date: 1994/10/16 06:53:53 $
+#    This program is free software. You can redistribute it and
+#    modify it under the terms of the GNU General Public License.
+#    There is no warranty.
 #
 
 PROG1	= chfn
@@ -17,8 +13,8 @@ OBJS1	= chfn.o setpwnam.o
 PROG2	= chsh
 OBJS2	= chsh.o setpwnam.o
 CC	= gcc -Wall
-CFLAGS	= -O2
-LDFLAGS = -s
+CFLAGS	= -O
+LDFLAGS =
 LIBS	=
 
 BINDIR	= /usr/bin/
@@ -39,7 +35,7 @@ clean:
 	rm -f $(PROG1) $(PROG2) *.o *~
 
 #
-#  install setuid.  whee.
+#  install setuid root.
 #
 install:
 	install -o root -g bin -m 4711 $(PROG1) $(BINDIR)

@@ -12,24 +12,16 @@
  *
  *  Usage:
  *  1) get a struct passwd * from getpwnam().
- *     You should assume a struct passwd has an infinite number of fields,
- *     so you should not try to create one from scratch.
- *  2) edit the fields you want to edit.
+ *     Assume a struct passwd has an infinite number of fields.
+ *     So do not try to create one from scratch.
+ *  2) edit the fields
  *  3) call setpwnam() with the edited struct passwd.
  *
- *  You should never directly read from or write to /etc/passwd.
- *  All user database queries should be directed through
- *  getpwnam() and setpwnam().
+ *  Do not directly read from or write to /etc/passwd.
+ *  Use getpwnam() and setpwnam().
  *
  *  Thanks to "two guys named Ian".
  */
-/*   $Author: svalente $
- *   $Revision: 1.4 $
- *   $Date: 95/05/12 07:50:34 $
- */
-
-/*  because I use getpwent(), putpwent(), etc... */
-#define _SVID_SOURCE
 
 #include <sys/types.h>
 #include <stdio.h>
@@ -39,9 +31,6 @@
 #include <fcntl.h>
 #include <pwd.h>
 #include <errno.h>
-#ifdef BSD43
-#include <sys/file.h>
-#endif
 
 extern int errno;
 
@@ -59,12 +48,15 @@ typedef int boolean;
 
 static int copy_pwd (struct passwd *src, struct passwd *dest);
 static char *xstrdup (char *str);
+#ifdef NO_PUTPWENT
+static int putpwent (const struct passwd *entry, FILE *fp);
+#endif
 
 /*
  *  setpwnam () --
- *      takes a struct passwd in which every field is filled in and valid.
- *      If the given username exists in the passwd file, his entry is
- *      replaced with the given entry.
+ *      takes a struct passwd in which every field is valid.
+ *      If the given username exists in the passwd file, then that entry
+ *      is replaced with the given entry.
  */
 int setpwnam (struct passwd *pwd)
 {
@@ -125,7 +117,9 @@ int setpwnam (struct passwd *pwd)
     /* we don't care if we can't remove the backup file */
     remove (buf);
     /* we don't care if we can't create the backup file */
-    link (passwd, buf);
+    if (link (passwd, buf) > 0) {
+        perror(buf);
+    }
     /* we DO care if we can't erase the passwd file */
     if (remove (passwd) < 0) {
         /* if the file is still there, fail */
@@ -137,8 +131,9 @@ int setpwnam (struct passwd *pwd)
         return (-1);
     }
     /* if we can't erase the ptmp file, we simply lose */
-    if (remove (ptmp) < 0)
+    if (remove (ptmp) < 0) {
         return (-1);
+    }
     /* finally:  success */
     return 0;
 
@@ -152,18 +147,19 @@ int setpwnam (struct passwd *pwd)
     return (-1);
 }
 
-#define memzero(ptr, size) memset((char *) ptr, 0, size)
 static int failed;
 
+/*
+ *  copy_pwd () --
+ *      Copy the fields of a struct passwd into newly malloc'd memory.
+ *
+ *  This breaks abstraction barriers.  It's not portable across systems,
+ *  or even across different versions of the C library on a given system.
+ */
 static int copy_pwd (struct passwd *src, struct passwd *dest)
 {
-    /*  this routine destroys abstraction barriers.  it's not portable
-     *  across systems, or even across different versions of the C library
-     *  on a given system.  it's dangerous and evil and wrong and I dispise
-     *  getpwent() for forcing me to write this.
-     */
     failed = 0;
-    memzero (dest, sizeof (struct passwd));
+    memset (dest, 0, sizeof (struct passwd));
     dest->pw_name = xstrdup (src->pw_name);
     dest->pw_passwd = xstrdup (src->pw_passwd);
     dest->pw_uid = src->pw_uid;
@@ -191,16 +187,17 @@ static char *xstrdup (char *str)
 
 #ifdef NO_PUTPWENT
 
-int putpwent (const struct passwd *p, FILE *stream)
+static int putpwent (const struct passwd *p, FILE *stream)
 {
     if (p == NULL || stream == NULL) {
         errno = EINVAL;
         return (-1);
     }
-    if (fprintf (stream, "%s:%s:%u:%u:%s:%s:%s\n",
+    if (fprintf (stream, "%s:%s:%d:%d:%s:%s:%s\n",
                  p->pw_name, p->pw_passwd, p->pw_uid, p->pw_gid,
-                 p->pw_gecos, p->pw_dir, p->pw_shell) < 0)
+                 p->pw_gecos, p->pw_dir, p->pw_shell) < 0) {
         return (-1);
+    }
     return(0);
 }
 
